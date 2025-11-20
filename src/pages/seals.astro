@@ -1,0 +1,16 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { DMOSealsApp } from '../components/DMOSealsApp';
+
+// No cargamos los datos aquí para que la página se muestre inmediatamente
+// Los datos se cargarán del lado del cliente
+---
+
+<Layout title="DMO Seal Master - Guía de Seals">
+  <DMOSealsApp
+    client:load
+    categories={[]}
+    lastUpdate={null}
+    source="database"
+  />
+</Layout>

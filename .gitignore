@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.*
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Astro
+.astro/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Nota: data/seals.db se puede versionar ya que contiene
+# los datos del scraping. Descomenta la siguiente línea
+# si preferís no versionarlo:
+# data/seals.db

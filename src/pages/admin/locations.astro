@@ -1,0 +1,486 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getSessionFromCookie, isValidSession } from '../../lib/auth';
+
+export const prerender = false;
+
+// Verificar autenticación
+const cookieHeader = Astro.request.headers.get('cookie') || '';
+const token = getSessionFromCookie(cookieHeader);
+
+// Redirigir si no está autenticado
+if (!isValidSession(token)) {
+  return Astro.redirect('/login');
+}
+---
+
+<Layout title="Gestión de Locaciones - DMO Seals">
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <!-- Header -->
+    <header class="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
+      <div class="max-w-7xl mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-xl font-bold text-white flex items-center gap-2">
+              📍 Gestión de Locaciones
+            </h1>
+            <p class="text-sm text-slate-400">
+              Administrar ubicaciones de drop de los Seals
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <a
+              href="/"
+              class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:border-blue-500 hover:bg-slate-800 text-sm text-slate-300 hover:text-white transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Menú Principal
+            </a>
+            <a
+              href="/admin"
+              class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600/50 hover:border-slate-500 hover:bg-slate-700 text-sm text-slate-300 hover:text-white transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+              Panel Admin
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+      <!-- Filtros y búsqueda -->
+      <div class="bg-slate-800 rounded-xl border border-slate-700/50 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row gap-4">
+          <div class="flex-1">
+            <label for="search" class="block text-sm font-medium text-slate-400 mb-2">
+              Buscar Seal
+            </label>
+            <input
+              type="text"
+              id="search"
+              placeholder="Buscar por nombre..."
+              class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dmo-primary focus:border-transparent"
+            />
+          </div>
+          <div class="sm:w-64">
+            <label for="category-filter" class="block text-sm font-medium text-slate-400 mb-2">
+              Categoría
+            </label>
+            <select
+              id="category-filter"
+              class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-dmo-primary focus:border-transparent"
+            >
+              <option value="">Todas las categorías</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="loading" class="text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-dmo-primary"></div>
+        <p class="text-slate-400 mt-4">Cargando seals...</p>
+      </div>
+
+      <!-- Lista de Seals -->
+      <div id="seals-container" class="hidden space-y-4">
+        <!-- Los seals se cargarán aquí dinámicamente -->
+      </div>
+
+      <!-- Empty state -->
+      <div id="empty-state" class="hidden text-center py-12">
+        <p class="text-slate-400">No se encontraron seals</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal para editar locaciones -->
+  <div id="edit-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 rounded-xl border border-slate-700/50 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-slate-800 border-b border-slate-700/50 p-6 flex items-center justify-between">
+        <div>
+          <h2 id="modal-title" class="text-xl font-bold text-white"></h2>
+          <p id="modal-category" class="text-sm text-slate-400"></p>
+        </div>
+        <button id="close-modal" class="text-slate-400 hover:text-white transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <!-- Locaciones existentes -->
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Locaciones actuales</h3>
+          <div id="locations-list" class="space-y-2">
+            <!-- Las locaciones se cargarán aquí -->
+          </div>
+          <p id="no-locations" class="hidden text-slate-400 text-sm">No hay locaciones registradas</p>
+        </div>
+
+        <!-- Agregar nueva locación -->
+        <div class="border-t border-slate-700/50 pt-6">
+          <h3 class="text-lg font-semibold text-white mb-4">Agregar nueva locación</h3>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              id="new-location-input"
+              placeholder="Nombre de la locación..."
+              class="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-dmo-primary focus:border-transparent"
+            />
+            <button
+              id="add-location-btn"
+              class="px-6 py-2 bg-dmo-primary hover:bg-dmo-primary/90 text-white font-medium rounded-lg transition-colors"
+            >
+              Agregar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script is:inline>
+  (function() {
+    let allSeals = [];
+    let currentSealId = null;
+    let currentLocations = [];
+
+    // Cargar seals al iniciar
+    loadSeals();
+
+    async function loadSeals() {
+      const loading = document.getElementById('loading');
+      const container = document.getElementById('seals-container');
+      const emptyState = document.getElementById('empty-state');
+
+      try {
+        const response = await fetch('/api/admin/seals');
+        const data = await response.json();
+
+        if (response.ok) {
+          allSeals = data.seals;
+          populateCategoryFilter();
+          renderSeals(allSeals);
+
+          if (loading) loading.classList.add('hidden');
+          if (container) container.classList.remove('hidden');
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (error) {
+        if (loading) loading.classList.add('hidden');
+        if (emptyState) {
+          emptyState.classList.remove('hidden');
+          emptyState.querySelector('p').textContent = 'Error al cargar los seals: ' + error.message;
+        }
+      }
+    }
+
+    function populateCategoryFilter() {
+      const select = document.getElementById('category-filter');
+      if (!select) return;
+
+      const categories = {};
+      allSeals.forEach(function(seal) {
+        if (!categories[seal.categoryId]) {
+          categories[seal.categoryId] = seal.categoryName;
+        }
+      });
+
+      Object.keys(categories).sort().forEach(function(catId) {
+        const option = document.createElement('option');
+        option.value = catId;
+        option.textContent = categories[catId];
+        select.appendChild(option);
+      });
+    }
+
+    function renderSeals(seals) {
+      const container = document.getElementById('seals-container');
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      seals.forEach(function(seal) {
+        const sealCard = document.createElement('div');
+        sealCard.className = 'bg-slate-800 rounded-xl border border-slate-700/50 p-6 hover:border-slate-600 transition-colors';
+
+        const locationsHTML = seal.locations.length > 0
+          ? seal.locations.map(function(loc) {
+              return '<span class="inline-block px-3 py-1 bg-slate-700/50 text-slate-300 text-sm rounded-lg mr-2 mb-2">' + loc + '</span>';
+            }).join('')
+          : '<span class="text-slate-500 text-sm italic">Sin locaciones</span>';
+
+        sealCard.innerHTML =
+          '<div class="flex items-start justify-between">' +
+            '<div class="flex-1">' +
+              '<div class="flex items-center gap-3 mb-3">' +
+                '<h3 class="text-lg font-semibold text-white">' + seal.name + '</h3>' +
+                '<span class="px-2 py-1 text-xs font-medium rounded-lg" style="background-color: ' + seal.categoryColor + '20; color: ' + seal.categoryColor + '">' +
+                  seal.categoryName +
+                '</span>' +
+              '</div>' +
+              '<div class="mb-3">' +
+                '<p class="text-sm text-slate-400 mb-2">Locaciones (' + seal.locations.length + '):</p>' +
+                '<div class="flex flex-wrap">' + locationsHTML + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<button class="edit-seal-btn px-4 py-2 bg-dmo-primary/20 hover:bg-dmo-primary/30 text-dmo-primary font-medium rounded-lg transition-colors" data-seal-id="' + seal.id + '">' +
+              'Editar' +
+            '</button>' +
+          '</div>';
+
+        container.appendChild(sealCard);
+      });
+
+      // Agregar event listeners a botones de editar
+      document.querySelectorAll('.edit-seal-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const sealId = parseInt(this.getAttribute('data-seal-id'));
+          openEditModal(sealId);
+        });
+      });
+    }
+
+    // Filtros
+    const searchInput = document.getElementById('search');
+    const categoryFilter = document.getElementById('category-filter');
+
+    if (searchInput) {
+      searchInput.addEventListener('input', filterSeals);
+    }
+    if (categoryFilter) {
+      categoryFilter.addEventListener('change', filterSeals);
+    }
+
+    function filterSeals() {
+      const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+      const categoryId = categoryFilter ? categoryFilter.value : '';
+
+      const filtered = allSeals.filter(function(seal) {
+        const matchesSearch = seal.name.toLowerCase().indexOf(searchTerm) !== -1;
+        const matchesCategory = !categoryId || seal.categoryId === categoryId;
+        return matchesSearch && matchesCategory;
+      });
+
+      renderSeals(filtered);
+    }
+
+    // Modal
+    async function openEditModal(sealId) {
+      const seal = allSeals.find(function(s) { return s.id === sealId; });
+      if (!seal) return;
+
+      currentSealId = sealId;
+
+      const modal = document.getElementById('edit-modal');
+      const modalTitle = document.getElementById('modal-title');
+      const modalCategory = document.getElementById('modal-category');
+
+      if (modalTitle) modalTitle.textContent = seal.name;
+      if (modalCategory) modalCategory.textContent = seal.categoryName;
+      if (modal) modal.classList.remove('hidden');
+
+      // Cargar locaciones
+      await loadLocations(sealId);
+    }
+
+    async function loadLocations(sealId) {
+      try {
+        const response = await fetch('/api/admin/locations?sealId=' + sealId);
+        const data = await response.json();
+
+        if (response.ok) {
+          currentLocations = data.locations;
+          renderLocations();
+        }
+      } catch (error) {
+        alert('Error al cargar locaciones: ' + error.message);
+      }
+    }
+
+    function renderLocations() {
+      const list = document.getElementById('locations-list');
+      const noLocations = document.getElementById('no-locations');
+
+      if (!list || !noLocations) return;
+
+      if (currentLocations.length === 0) {
+        list.innerHTML = '';
+        noLocations.classList.remove('hidden');
+        return;
+      }
+
+      noLocations.classList.add('hidden');
+      list.innerHTML = '';
+
+      currentLocations.forEach(function(loc) {
+        const locItem = document.createElement('div');
+        locItem.className = 'flex items-center gap-2 bg-slate-900 rounded-lg p-3';
+        locItem.innerHTML =
+          '<input type="text" value="' + loc.location + '" class="flex-1 bg-transparent border-none text-white focus:outline-none location-input" data-location-id="' + loc.id + '" />' +
+          '<button class="save-location-btn hidden px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-sm rounded transition-colors" data-location-id="' + loc.id + '">Guardar</button>' +
+          '<button class="delete-location-btn px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm rounded transition-colors" data-location-id="' + loc.id + '">Eliminar</button>';
+
+        list.appendChild(locItem);
+      });
+
+      // Event listeners para editar
+      document.querySelectorAll('.location-input').forEach(function(input) {
+        const locationId = input.getAttribute('data-location-id');
+        const saveBtn = input.parentElement.querySelector('.save-location-btn');
+
+        input.addEventListener('input', function() {
+          if (saveBtn) saveBtn.classList.remove('hidden');
+        });
+
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter' && saveBtn) {
+            saveBtn.click();
+          }
+        });
+      });
+
+      // Event listeners para guardar
+      document.querySelectorAll('.save-location-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          const locationId = parseInt(this.getAttribute('data-location-id'));
+          const input = this.parentElement.querySelector('.location-input');
+          const newLocation = input.value.trim();
+
+          if (!newLocation) {
+            alert('La locación no puede estar vacía');
+            return;
+          }
+
+          await updateLocation(locationId, newLocation);
+        });
+      });
+
+      // Event listeners para eliminar
+      document.querySelectorAll('.delete-location-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          if (!confirm('¿Estás seguro de eliminar esta locación?')) return;
+
+          const locationId = parseInt(this.getAttribute('data-location-id'));
+          await deleteLocation(locationId);
+        });
+      });
+    }
+
+    // Agregar nueva locación
+    const addLocationBtn = document.getElementById('add-location-btn');
+    const newLocationInput = document.getElementById('new-location-input');
+
+    if (addLocationBtn && newLocationInput) {
+      addLocationBtn.addEventListener('click', function() {
+        addNewLocation();
+      });
+
+      newLocationInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          addNewLocation();
+        }
+      });
+    }
+
+    async function addNewLocation() {
+      const location = newLocationInput.value.trim();
+
+      if (!location) {
+        alert('Ingresa un nombre para la locación');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/locations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sealId: currentSealId,
+            location: location
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          newLocationInput.value = '';
+          await loadLocations(currentSealId);
+          await loadSeals(); // Recargar lista principal
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error al agregar locación: ' + error.message);
+      }
+    }
+
+    async function updateLocation(locationId, newLocation) {
+      try {
+        const response = await fetch('/api/admin/locations', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locationId: locationId,
+            newLocation: newLocation
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          await loadLocations(currentSealId);
+          await loadSeals();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error al actualizar locación: ' + error.message);
+      }
+    }
+
+    async function deleteLocation(locationId) {
+      try {
+        const response = await fetch('/api/admin/locations?locationId=' + locationId, {
+          method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          await loadLocations(currentSealId);
+          await loadSeals();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error al eliminar locación: ' + error.message);
+      }
+    }
+
+    // Cerrar modal
+    const closeModalBtn = document.getElementById('close-modal');
+    const modal = document.getElementById('edit-modal');
+
+    if (closeModalBtn) {
+      closeModalBtn.addEventListener('click', function() {
+        if (modal) modal.classList.add('hidden');
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.classList.add('hidden');
+        }
+      });
+    }
+  })();
+</script>
+</Layout>
