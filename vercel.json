@@ -1,0 +1,12 @@
+{
+  "build": {
+    "env": {
+      "ASTRO_NODE_AUTO_LEAVE": "false"
+    }
+  },
+  "functions": {
+    "dist/server/entry.mjs": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}
